@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/p/:path*", "destination": "/index.html" },
+    { "source": "/kiosk", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(css|js|assets)/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
+    }
+  ]
+}

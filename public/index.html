@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gardens by the Bay Explorer · Concept by Stratagile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#10302a">
+<meta name="description" content="Interactive map of Gardens by the Bay, Bay South. Concept prototype by Stratagile.">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><b>Gardens <span>by the Bay</span> Explorer</b><small>Bay South · interactive guide</small></div>
+    <div class="hdr-sp"></div>
+    <span class="pill" id="rhap"><i class="dot"></i><span id="rhapTxt">Garden Rhapsody</span></span>
+    <span class="pill" id="clock">--:--</span>
+    <button id="dn" aria-label="Toggle day or night view"><span id="dnIcon">☾</span> <span class="txt" id="dnTxt">Night view</span></button>
+  </header>
+
+  <div id="mapWrap">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-label="Illustrated map of Gardens by the Bay, Bay South">
+      <defs>
+        <linearGradient id="seaGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--sea-a)"/><stop offset="1" stop-color="var(--sea-b)"/></linearGradient>
+        <radialGradient id="glassGrad" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset="1" stop-color="var(--glass)" stop-opacity=".6"/></radialGradient>
+      </defs>
+      <g id="illus"></g>
+      <image id="customMap" style="display:none"/>
+      <polyline id="route" points=""/>
+      <g id="pins"></g>
+    </svg>
+    <div class="filters" id="filters"></div>
+    <div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button><button id="zhome" aria-label="Show whole map" style="font-size:18px">⤢</button></div>
+    <div class="compass">▲ N · illustrative, not to scale</div>
+  </div>
+
+  <aside id="panel" aria-live="polite"><button class="closeP" id="closeP" aria-label="Close">✕</button><div id="pcontent" class="pcontent"></div>
+    <div class="disclaimer">Concept prototype by Stratagile for the AI warm-up exercise. Not an official Gardens by the Bay website. Hours as of Nov 2026; attractions close for monthly maintenance, so check the official site before you go.</div>
+  </aside>
+
+  <div id="tray">
+    <span class="ttl">My plan</span>
+    <div class="stops" id="stops"></div>
+    <button class="clear" id="clearPlan">Clear</button>
+    <button class="send" id="sendPlan">📱 Send to my phone</button>
+  </div>
+</div>
+
+<div id="attract"><div>Touch the map to explore<span>Build your plan here, then take it with you on your phone</span></div></div>
+<div class="modal" id="qrModal" role="dialog" aria-modal="true">
+  <div class="mcard">
+    <h3 id="qrTitle">Take it with you</h3>
+    <p id="qrSub">Scan with your phone camera. The map opens right where you left off.</p>
+    <div class="qrbox" id="qrBox"></div>
+    <div class="short" id="qrUrl"></div>
+    <div class="warn" id="qrWarn" style="display:none"></div>
+    <button class="btn dark" id="qrClose">Done</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="/js/qrcode.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
