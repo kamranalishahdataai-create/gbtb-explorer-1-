@@ -5,11 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gardens by the Bay Explorer · Concept by Stratagile</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/styles.css">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#10302a">
-<meta name="description" content="Interactive map of Gardens by the Bay, Bay South. Concept prototype by Stratagile.">
+<meta name="description" content="Interactive map of Gardens by the Bay, Bay South: live opening hours, Garden Rhapsody times, ready-made routes and a plan you can take on your phone. Concept prototype by Stratagile.">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GBTB Explorer">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Gardens by the Bay Explorer">
+<meta property="og:description" content="Live opening hours, show times and walking routes for Gardens by the Bay, Bay South. Build a plan and take it with you. Concept prototype by Stratagile.">
+<meta name="twitter:card" content="summary">
 </head>
 <body>
 <div id="app">
@@ -18,7 +27,8 @@
     <div class="hdr-sp"></div>
     <span class="pill" id="rhap"><i class="dot"></i><span id="rhapTxt">Garden Rhapsody</span></span>
     <span class="pill" id="clock">--:--</span>
-    <button id="dn" aria-label="Toggle day or night view"><span id="dnIcon">☾</span> <span class="txt" id="dnTxt">Night view</span></button>
+    <button id="findBtn" class="hbtn" aria-label="Find an attraction" title="Find an attraction (press /)">🔍 <span class="txt">Find</span></button>
+    <button id="dn" class="hbtn" aria-label="Toggle day or night view"><span id="dnIcon">☾</span> <span class="txt" id="dnTxt">Night view</span></button>
   </header>
 
   <div id="mapWrap">
@@ -42,8 +52,9 @@
   </aside>
 
   <div id="tray">
-    <span class="ttl">My plan</span>
+    <span class="ttl">My plan<small id="planSum"></small></span>
     <div class="stops" id="stops"></div>
+    <button class="opt" id="optPlan" title="Re-order stops to walk less" style="display:none">✨<span class="txt"> Best order</span></button>
     <button class="clear" id="clearPlan">Clear</button>
     <button class="send" id="sendPlan">📱 Send to my phone</button>
   </div>
@@ -56,11 +67,19 @@
     <p id="qrSub">Scan with your phone camera. The map opens right where you left off.</p>
     <div class="qrbox" id="qrBox"></div>
     <div class="short" id="qrUrl"></div>
+    <ol class="qrstops" id="qrStops"></ol>
     <div class="warn" id="qrWarn" style="display:none"></div>
     <button class="btn dark" id="qrClose">Done</button>
   </div>
 </div>
-<div id="toast"></div>
+<div class="modal" id="findModal" role="dialog" aria-modal="true" aria-label="Find an attraction">
+  <div class="mcard find">
+    <div class="qrow"><input id="q" type="search" placeholder="Search: waterfall, free, kids, food…" autocomplete="off" aria-label="Search attractions"><button class="qx" id="findClose" aria-label="Close">✕</button></div>
+    <div class="qlist" id="qlist"></div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<noscript><div style="position:fixed;inset:0;display:grid;place-items:center;background:#fbf8f1;font:600 18px system-ui;padding:24px;text-align:center;z-index:99">This interactive map needs JavaScript. Please enable it and reload.</div></noscript>
 
 <script src="/js/qrcode.js"></script>
 <script src="/js/config.js"></script>

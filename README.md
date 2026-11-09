@@ -6,6 +6,15 @@ Concept prototype by Stratagile for the AI warm-up exercise. It is not an offici
 - **Kiosk (big screen):** illustrated map with 20 clickable spots, live opening status in Singapore time, Garden Rhapsody countdown, category filters, ready-made routes, plan builder, auto night view after 7pm, and an idle tour that resets the screen between visitors.
 - **Phone:** visitors scan a QR code on the kiosk. The same map opens on their phone with their stops and route already loaded and saved. No app, no login.
 
+Also included:
+
+- **Find** (🔍 button or press `/`): search all 20 spots by name, feature or keyword ("waterfall", "free", "kids"), each with live open/closed status.
+- **Open now** filter: fades out anything that's closed at the current Singapore time.
+- **Plan time estimate and Best order**: the tray shows roughly how long the plan takes (visiting + walking). "Best order" re-orders your stops to cut walking (the first stop stays first; ready-made routes are left alone).
+- **Directions** (phone): opens walking directions to the spot in Google Maps.
+- **Works offline** on phones once opened (service worker), and can be added to the home screen.
+- Keyboard friendly (`Esc` closes dialogs, visible focus rings) and respects the "reduce motion" setting.
+
 No build step and no dependencies: plain HTML, CSS and JavaScript.
 
 ## Project structure
@@ -18,8 +27,10 @@ gbtb-explorer/
 │   ├── js/config.js     ← settings you may want to change
 │   ├── js/app.js        ← map, spots data, kiosk + phone logic
 │   ├── js/qrcode.js     ← QR code generator (qrcode-generator, MIT)
+│   ├── sw.js            ← offline support (bump VERSION if you add core files)
+│   ├── manifest.webmanifest
 │   └── assets/favicon.svg
-├── server.js            ← tiny Node server (Railway / local)
+├── server.js            ← tiny Node server (Railway / local): gzip, ETags, security headers
 ├── package.json
 ├── vercel.json          ← Vercel settings
 ├── railway.json         ← Railway settings (builds with the Dockerfile)

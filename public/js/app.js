@@ -107,6 +107,26 @@ const ROUTES = [
   {name:"Family day out",desc:"3 hours · play, water and flowers",stops:["main-entrance","childrens-garden","canyon","floral-fantasy","supertree-grove","active-garden"]},
   {name:"Sunset to showtime",desc:"From 5pm · dinner and lights",stops:["kingfisher","satay","supertree-grove","ocbc-skyway"]},
 ];
+const DIRECTIONS = s => "https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=" + encodeURIComponent(s.name+", Gardens by the Bay, Singapore");
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ================= PLAN MATHS ================= */
+// Ballpark figures only: the map is illustrative, so 1 map unit is treated as ~1.3 m of winding path at 70 m/min.
+function visitMin(s){const m=s.time.match(/(\d+)(?:–(\d+))?\s*(min|hr)/);if(!m)return 0;const a=+m[1],b=+(m[2]||m[1]);return Math.round((a+b)/2*(m[3]==="hr"?60:1))}
+function walkMin(a,b){return Math.hypot(a.x-b.x,a.y-b.y)*1.3/70}
+function pathWalk(ids){let t=0;for(let i=1;i<ids.length;i++)t+=walkMin(BYID[ids[i-1]],BYID[ids[i]]);return t}
+function dur(min){min=Math.max(5,Math.round(min/5)*5);if(min<60)return min+" min";const h=Math.floor(min/60),m=min%60;return h+"h"+(m?" "+m+"m":"")}
+// Shortest walking order that keeps the first stop first: nearest neighbour, then 2-opt.
+function bestOrder(ids){
+  if(ids.length<3) return ids.slice();
+  const rest=ids.slice(1), out=[ids[0]];
+  while(rest.length){const last=BYID[out[out.length-1]];let bi=0;rest.forEach((id,i)=>{if(walkMin(last,BYID[id])<walkMin(last,BYID[rest[bi]]))bi=i});out.push(rest.splice(bi,1)[0])}
+  for(let improved=true;improved;){improved=false;
+    for(let i=1;i<out.length-1;i++)for(let j=i+1;j<out.length;j++){
+      const c=out.slice(0,i).concat(out.slice(i,j+1).reverse(),out.slice(j+1));
+      if(pathWalk(c)<pathWalk(out)-1e-6){out.splice(0,out.length,...c);improved=true}}}
+  return out;
+}
 
 /* ================= HELPERS ================= */
 const $ = s => document.querySelector(s);
@@ -153,6 +173,7 @@ function tick(){
   const r=rhapsody(); $("#rhapTxt").textContent=r.txt; $("#rhap").classList.toggle("live",r.live);
   if(!tick.manual){ const night = n.min>=19*60 || n.min<6*60+30; setNight(night,false); }
   if(state.sel) refreshBadges();
+  if(state.openOnly) applyDim();
 }
 
 /* ================= ILLUSTRATION ================= */
@@ -316,6 +337,7 @@ function animateTo(t,ms=650){
   const f={...vb}, t0=performance.now();
   const step=now=>{let k=Math.min(1,(now-t0)/ms);k=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
     vb.cx=f.cx+(t.cx-f.cx)*k; vb.cy=f.cy+(t.cy-f.cy)*k; vb.w=f.w+(t.w-f.w)*k; applyVB(); if(k<1) anim=requestAnimationFrame(step)};
+  if(REDUCED) ms=1;
   anim=requestAnimationFrame(step);
 }
 function toSvg(clientX,clientY){const r=wrap.getBoundingClientRect();const h=vb.w/aspect();return {x:vb.cx-vb.w/2+(clientX-r.left)/r.width*vb.w, y:vb.cy-h/2+(clientY-r.top)/r.height*h}}
@@ -357,7 +379,7 @@ const params=new URLSearchParams(location.search);
 const CAL=params.has("calibrate");
 const FROM_KIOSK=params.get("from")==="kiosk";
 const KIOSK = params.get("mode")==="kiosk" || (!FROM_KIOSK && params.get("mode")!=="phone" && window.innerWidth>=1100 && matchMedia("(pointer:coarse)").matches) || params.get("mode")==="kiosk";
-const state={sel:null, filter:null, plan:[]};
+const state={sel:null, filter:null, openOnly:false, plan:[]};
 
 function setNight(on,manual){
   if(manual) tick.manual=true;
@@ -369,10 +391,16 @@ $("#rhap").onclick=()=>select("supertree-grove",true);
 
 function drawFilters(){
   const f=$("#filters"); f.innerHTML="";
-  const all=document.createElement("button"); all.className="chip"+(state.filter?"":" on"); all.textContent="All"; all.onclick=()=>setFilter(null); f.appendChild(all);
-  for(const k in CATS){const b=document.createElement("button");b.className="chip"+(state.filter===k?" on":"");b.innerHTML=`<i style="background:${CATS[k].color}"></i>${CATS[k].name}`;b.onclick=()=>setFilter(state.filter===k?null:k);f.appendChild(b)}
+  const chip=(html,on,fn)=>{const b=document.createElement("button");b.className="chip"+(on?" on":"");b.innerHTML=html;b.setAttribute("aria-pressed",on);b.onclick=fn;f.appendChild(b);return b};
+  chip("All",!state.filter,()=>setFilter(null));
+  chip(`<i class="livedot"></i>Open now`,state.openOnly,()=>{state.openOnly=!state.openOnly;drawFilters();applyDim();
+    if(state.openOnly){const n=SPOTS.filter(isOpenNow).length;toast(n?`${n} of ${SPOTS.length} spots are open right now`:"Nothing is open right now. The outdoor gardens open at 5am.")}}).classList.add("openchip");
+  for(const k in CATS) chip(`<i style="background:${CATS[k].color}"></i>${CATS[k].name}`,state.filter===k,()=>setFilter(state.filter===k?null:k));
 }
-function setFilter(k){state.filter=k;drawFilters();SPOTS.forEach(s=>s._p.classList.toggle("dim",!!k&&s.cat!==k));
+function isOpenNow(s){const c=status(s).cls;return c==="open"||c==="soon"}
+function isOpenish(s){return status(s).cls!=="closed"} // spots with unknown hours (food stalls) stay visible
+function applyDim(){SPOTS.forEach(s=>s._p.classList.toggle("dim",(!!state.filter&&s.cat!==state.filter)||(state.openOnly&&!isOpenish(s))))}
+function setFilter(k){state.filter=k;drawFilters();applyDim();
   if(k){const pts=SPOTS.filter(s=>s.cat===k);fitTo(pts)} }
 function fitTo(pts){const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
   const a=aspect(); let w=Math.max(maxx-minx+300,(maxy-miny+300)*a,600); animateTo({cx:(minx+maxx)/2,cy:(miny+maxy)/2+(window.innerWidth<=860?120:0),w})}
@@ -395,16 +423,18 @@ function refreshBadges(){const b=$("#badges");if(b&&state.sel)b.innerHTML=badges
 function renderPanel(){
   const p=$("#pcontent");
   if(!state.sel){
-    const r=rhapsody();
+    const r=rhapsody(), openN=SPOTS.filter(isOpenNow).length;
     p.innerHTML=`<div class="welcome">
       <div class="ptag" style="color:var(--accent)"><i style="background:var(--accent)"></i>${KIOSK?"Welcome":"Your pocket guide"}</div>
       <h2>Where would you like to go?</h2>
       <p>Tap any numbered spot on the map to see what's there, whether it's open, and how long to spend. Add stops to your plan, then take the plan with you on your phone.</p>
+      <button class="nowbar" id="nowBar"><span><b>${openN}</b> of ${SPOTS.length} spots open now</span><span class="go">🔍 Find a spot</span></button>
       <div class="shows"><b>Tonight: Garden Rhapsody</b><p>The Supertrees light up to music at 7.45pm and 8.45pm. Free, about 15 minutes.<br>${esc(r.txt.replace("Garden Rhapsody · ",""))}</p></div>
       <div class="ptag" style="color:var(--ink-soft);margin-bottom:10px">Ready-made routes</div>
       <div class="routes">${ROUTES.map((r,i)=>`<button class="route" data-r="${i}"><b>${esc(r.name)}</b><span>${esc(r.desc)}</span></button>`).join("")}</div>
     </div>`;
     p.querySelectorAll(".route").forEach(b=>b.onclick=()=>{const r=ROUTES[+b.dataset.r];state.plan=[...r.stops];savePlan();renderTray();fitTo(r.stops.map(id=>BYID[id]));toast(`“${r.name}” added to your plan`)});
+    $("#nowBar").onclick=openFind;
     return;
   }
   const s=BYID[state.sel], c=CATS[s.cat], inPlan=state.plan.includes(s.id);
@@ -419,7 +449,8 @@ function renderPanel(){
     <div class="actions">
       <button class="btn ${inPlan?"":"primary"}" id="addBtn">${inPlan?"✓ In your plan":"＋ Add to plan"}</button>
       ${KIOSK?`<button class="btn dark" id="phoneBtn">📱 On my phone</button>`:`<button class="btn dark" id="shareBtn">↗ Share</button>`}
-      <a class="btn full" href="${OFFICIAL(s.loc)}" target="_blank" rel="noopener">Official info & tickets ↗</a>
+      ${KIOSK?`<a class="btn full" href="${OFFICIAL(s.loc)}" target="_blank" rel="noopener">Official info & tickets ↗</a>`
+        :`<a class="btn" href="${DIRECTIONS(s)}" target="_blank" rel="noopener">🧭 Directions</a><a class="btn" href="${OFFICIAL(s.loc)}" target="_blank" rel="noopener">Official info ↗</a>`}
     </div>`;
   $("#backBtn").onclick=()=>{state.sel=null;markSel();renderPanel();if(window.innerWidth<=860)closePanel()};
   $("#addBtn").onclick=()=>togglePlan(s.id);
@@ -450,8 +481,18 @@ function renderTray(){
   $("#sendPlan").style.display = state.plan.length ? "" : (KIOSK?"none":"none");
   $("#clearPlan").style.display = state.plan.length ? "" : "none";
   $("#sendPlan").textContent = KIOSK ? "📱 Send to my phone" : "↗ Share plan";
+  const sum=$("#planSum");
+  if(state.plan.length){const v=state.plan.reduce((t,id)=>t+visitMin(BYID[id]),0), w=pathWalk(state.plan);
+    sum.textContent=`${state.plan.length} stop${state.plan.length>1?"s":""} · about ${dur(v+w)}`; sum.title=`About ${dur(v)} visiting + ${dur(w)} walking (rough estimate)`}
+  else{sum.textContent="";sum.title=""}
+  // Ready-made routes are ordered on purpose (e.g. ending at the Supertrees for the show), so don't offer to re-order them.
+  const curated=ROUTES.some(r=>r.stops.join()===state.plan.join());
+  $("#optPlan").style.display = !curated && state.plan.length>2 && pathWalk(bestOrder(state.plan))<pathWalk(state.plan)-0.5 ? "" : "none";
 }
 $("#clearPlan").onclick=()=>{state.plan=[];savePlan();renderTray();renderPanel()};
+$("#optPlan").onclick=()=>{const before=pathWalk(state.plan);state.plan=bestOrder(state.plan);const saved=before-pathWalk(state.plan);
+  savePlan();renderTray();if(state.sel)renderPanel();fitTo(state.plan.map(id=>BYID[id]));
+  toast(`Re-ordered your stops: about ${Math.max(1,Math.round(saved))} min less walking`)};
 $("#sendPlan").onclick=async()=>{
   if(KIOSK) return openQR({plan:state.plan, spot:state.sel});
   const url=handoffURL({plan:state.plan}); try{if(navigator.share){await navigator.share({title:"My Gardens by the Bay plan",url});return}}catch(e){}
@@ -473,19 +514,47 @@ function openQR(opts){
   const n=(opts.plan||[]).length;
   $("#qrTitle").textContent = n ? `Your ${n}-stop plan` : (opts.spot?BYID[opts.spot].name:"Take it with you");
   $("#qrSub").textContent = "Scan with your phone camera. The map opens on your phone with "+(n?"your stops and route":"this spot")+" ready. No app needed.";
+  $("#qrStops").innerHTML = n ? opts.plan.map(id=>`<li>${esc(BYID[id].name.replace("Far East Organization ",""))}</li>`).join("") : "";
   const w=$("#qrWarn"); if(!CONFIG.publicUrl && !/^https?:/.test(location.protocol)){w.style.display="";w.textContent="Preview mode: host this page (e.g. GitHub Pages or Netlify) or set CONFIG.publicUrl so the QR code points to a real address."} else w.style.display="none";
   $("#qrModal").classList.add("show");
 }
 $("#qrClose").onclick=()=>$("#qrModal").classList.remove("show");
 $("#qrModal").onclick=e=>{if(e.target.id==="qrModal")$("#qrModal").classList.remove("show")};
 
+/* ---------- find (search + list of every spot) ---------- */
+function renderFind(){
+  const q=$("#q").value.trim().toLowerCase();
+  const hits=SPOTS.filter(s=>!q||[s.name,s.blurb,s.tip,s.ticket,CATS[s.cat].name,...s.hi].join(" ").toLowerCase().includes(q));
+  const L=$("#qlist");
+  L.innerHTML = hits.length ? hits.map(s=>{const st=status(s);return `<button class="qitem" data-id="${s.id}"><em style="background:${CATS[s.cat].color}">${s.n}</em><span><b>${esc(s.name)}</b><small><i class="${st.cls}">${esc(st.txt)}</i> · ${esc(s.ticket)} · ${esc(s.time)}</small></span></button>`}).join("")
+    : `<p class="qnone">No matches. Try “flowers”, “free”, “kids” or “food”.</p>`;
+  L.querySelectorAll(".qitem").forEach(b=>b.onclick=()=>{closeFind();select(b.dataset.id,true)});
+}
+function openFind(){$("#q").value="";renderFind();$("#findModal").classList.add("show");if(!KIOSK)setTimeout(()=>$("#q").focus(),30)}
+function closeFind(){$("#findModal").classList.remove("show")}
+$("#findBtn").onclick=openFind;
+$("#findClose").onclick=closeFind;
+$("#q").addEventListener("input",renderFind);
+$("#q").addEventListener("keydown",e=>{if(e.key==="Enter"){const b=$("#qlist .qitem");if(b)b.click()}});
+$("#findModal").onclick=e=>{if(e.target.id==="findModal")closeFind()};
+
+/* ---------- keyboard ---------- */
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){
+    if($("#findModal").classList.contains("show")) return closeFind();
+    if($("#qrModal").classList.contains("show")) return $("#qrModal").classList.remove("show");
+    if(window.innerWidth<=860) return closePanel();
+  }
+  if(e.key==="/" && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){e.preventDefault();openFind()}
+});
+
 /* ---------- kiosk attract mode ---------- */
 let idleT, attractT, attractI=0;
 const TOUR=["supertree-grove","flower-dome","cloud-forest","ocbc-skyway","floral-fantasy","childrens-garden","heritage","observatory","satay","planet"];
 function resetIdle(){ if(!KIOSK) return; clearTimeout(idleT); if(document.body.classList.contains("attract")) stopAttract(); idleT=setTimeout(startAttract, CONFIG.idleSeconds*1000) }
 function startAttract(){
-  document.body.classList.add("attract"); $("#qrModal").classList.remove("show");
-  state.plan=[]; savePlan(); renderTray(); setFilter(null);
+  document.body.classList.add("attract"); $("#qrModal").classList.remove("show"); closeFind();
+  state.plan=[]; state.openOnly=false; savePlan(); renderTray(); setFilter(null);
   const step=()=>{ select(TOUR[attractI++%TOUR.length],true) }; step(); attractT=setInterval(step, CONFIG.attractStepSeconds*1000);
 }
 function stopAttract(){document.body.classList.remove("attract");clearInterval(attractT);state.sel=null;markSel();renderPanel();animateTo(homeView())}
@@ -507,5 +576,8 @@ function boot(){
   tick(); setInterval(tick,30000);
   if(KIOSK) resetIdle();
   if(CAL) toast("Calibrate mode: click the map to read x/y coordinates",5000);
+  // Offline support for phones (patchy signal in the Gardens). Needs https or localhost.
+  if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost") && !CAL)
+    window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
 }
 boot();

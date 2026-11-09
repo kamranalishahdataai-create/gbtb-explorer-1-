@@ -1,0 +1,14 @@
+{
+  "name": "Gardens by the Bay Explorer",
+  "short_name": "GBTB Explorer",
+  "description": "Interactive map of Gardens by the Bay, Bay South. Concept prototype by Stratagile.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#10302a",
+  "theme_color": "#10302a",
+  "icons": [
+    { "src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
